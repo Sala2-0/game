@@ -10,7 +10,9 @@ export class Game {
 
   static targetUnit: Model | undefined = undefined;
 
+  static isAttacking: boolean = false;
+
   static find = (model: Model): Model | undefined => FFindUnit.InvokeServer(model);
   static hasMoved = (): boolean => this.targetUnit !== undefined && FHasMoved.InvokeServer(this.targetUnit);
   static hasAttacked = (): boolean => this.targetUnit !== undefined && FHasAttacked.InvokeServer(this.targetUnit);
-};
+}

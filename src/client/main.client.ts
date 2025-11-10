@@ -7,6 +7,7 @@ const ReplicatedStorage = game.GetService("ReplicatedStorage");
 const EMoveCharacter = ReplicatedStorage.WaitForChild("MoveCharacter") as RemoteEvent;
 const FHasMoved = ReplicatedStorage.WaitForChild("ClientGetters").WaitForChild("HasMoved") as RemoteFunction;
 const FIsFriendly = ReplicatedStorage.WaitForChild("ClientGetters").WaitForChild("IsFriendly") as RemoteFunction<(model: Model) => boolean>;
+const EDealDamage = ReplicatedStorage.WaitForChild("DealDamage") as RemoteEvent;
 
 const player = game.GetService("Players").LocalPlayer;
 const cameraPos = game.Workspace.WaitForChild("CameraPos") as Part;
@@ -39,34 +40,38 @@ RunService.RenderStepped.Connect(() => {
   const target = mouse.Target;
 
   position = mouse.Hit.Position;
-  highlight.Position = mouse.Hit.Position;
+  highlight.Position = position;
+
+  if (!target?.Parent?.GetAttribute("IsCharacter")) {
+      Game.highlightedUnit = undefined;
+      outline.Parent = undefined;
+  }
 
   // Selection
-  if (Game.targetUnit === undefined && target?.Parent?.Name === "Character") {
-    const targetCharacter = Game.find(target.Parent as Model);
+  if (Game.targetUnit === undefined && !Game.isAttacking && !target?.GetAttribute("IsCharacter")) {
+    const targetCharacter = Game.find(target!.Parent as Model);
     if (!targetCharacter) return;
 
     if (!FIsFriendly.InvokeServer(targetCharacter)) return;
     if (FHasMoved.InvokeServer(targetCharacter)) return;
 
     Game.highlightedUnit = targetCharacter;
-    outline.Parent = target.Parent;
-  }
-  else {
-    Game.highlightedUnit = undefined;
-    outline.Parent = undefined;
+    outline.OutlineColor = Color3.fromHex("#ffffff");
+    outline.Parent = target!.Parent;
   }
 
   // Attacking
-  if (Game.targetUnit && Game.hasMoved() && Game.hasAttacked()) {
+  if (Game.targetUnit && Game.hasMoved() && !Game.hasAttacked() && Game.isAttacking) {
     const humanoid = Game.targetUnit.FindFirstChild("Humanoid") as Humanoid;
     if (!humanoid.MoveToFinished) return;
 
     const targetOpponent = target?.Parent as Model;
-    if (!targetOpponent) return;
+    if (targetOpponent === undefined || targetOpponent.Name !== "Character") return;
+    if (FIsFriendly.InvokeServer(targetOpponent)) return;
 
     Game.highlightedOpponent = targetOpponent;
-    outline.Parent = Game.highlightedOpponent.Parent;
+    outline.OutlineColor = Color3.fromHex("#ff3c3f");
+    outline.Parent = Game.highlightedOpponent;
   }
 
   // Movement
@@ -88,10 +93,12 @@ UserInputService.InputBegan.Connect((input) => {
   if (input.UserInputType === Enum.UserInputType.MouseButton1) {
     if (inPlayArea && Game.targetUnit) {
       EMoveCharacter.FireServer(position, Game.targetUnit);
-      Game.targetUnit = undefined;
+      // Game.targetUnit = undefined;
       pathLineStart = undefined;
       highlight.Parent = undefined;
       beam.Parent = undefined;
+
+      Game.isAttacking = true;
     }
 
     if (Game.highlightedUnit) {
@@ -103,6 +110,14 @@ UserInputService.InputBegan.Connect((input) => {
 
       highlight.Parent = game.Workspace;
       beam.Parent = game.Workspace;
+    }
+
+    if (Game.highlightedOpponent) {
+        EDealDamage.FireServer(Game.targetUnit, Game.highlightedOpponent, 50);
+
+        Game.isAttacking = false;
+        Game.targetUnit = undefined;
+        Game.highlightedOpponent = undefined;
     }
   }
 });

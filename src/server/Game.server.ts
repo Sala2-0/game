@@ -7,6 +7,7 @@ const FFindUnit = ReplicatedStorage.WaitForChild("ClientGetters").WaitForChild("
 const FHasMoved = ReplicatedStorage.WaitForChild("ClientGetters").WaitForChild("HasMoved") as RemoteFunction;
 const FHasAttacked = ReplicatedStorage.WaitForChild("ClientGetters").WaitForChild("HasAttacked") as RemoteFunction;
 const FIsFriendly = ReplicatedStorage.WaitForChild("ClientGetters").WaitForChild("IsFriendly") as RemoteFunction;
+const EDealDamage = ReplicatedStorage.WaitForChild("DealDamage") as RemoteEvent;
 
 EMoveCharacter.OnServerEvent.Connect((_, pos, character) => {
   if (!typeIs(pos, "Vector3") || !typeIs(character, "Instance")) return;
@@ -50,4 +51,15 @@ FIsFriendly.OnServerInvoke = ((account, character) => {
   const obj = Game.units.find(c => c.instance === character);
 
   return obj!.owner === account.UserId;
+});
+
+EDealDamage.OnServerEvent.Connect((_, character, opponentCharacter, totalDamage) => {
+    if (!typeIs(character, "Instance") || !typeIs(totalDamage, "number")) return;
+
+    const obj = Game.units.find(c => c.instance === character);
+    const opponentObj = Game.units.find(c => c.instance === opponentCharacter);
+
+    (opponentObj!.instance.FindFirstChild("Humanoid") as Humanoid).TakeDamage(totalDamage);
+    opponentObj!.healthPoints -= totalDamage;
+    obj!.hasAttacked = true;
 });
